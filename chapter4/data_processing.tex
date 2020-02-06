@@ -1,0 +1,838 @@
+\documentclass{book}
+
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{verbatim}
+\usepackage{amsmath}
+\usepackage[backend=bibtex, sorting=none, style=numeric-comp, defernumbers]{biblatex}
+\usepackage{graphicx}
+
+\addbibresource{\jobname.bib}
+
+\begin{document}
+\title{Chapter 4 - Working with Data}
+\author {Joydeep Bhattacharjee}
+
+\maketitle
+
+Machine learning applications run on data. One of the main activities when building a machine learning application is to collate from different data sources, store in an effective format and transformation of raw data into formats that are appropriate for the machine learning app. Data can come in different formats. In the previous chapters, we mainly worked with csv files. CSV files are great for storing and retrieving information. There is the added advantage that data paradigms in the csv translate quite well to matrix formats where most of the calculation happens. But in reality, when working on actual data we seldom find that the data is presented in a nice csv format. In this chapter we will explore the different types of popular paradigms to store and retrieve information and how we can leverage them to extract, process and store data.
+
+\section{JSON}%
+JSON stands for JavaScript Object Notation and as is probably understood from the name was meant for the WEB. JSON also works better for relational data better than csv. Many developers consider JSON to be the default serialization\\-deserialization datastructure for the web. The result being that many web apis publish their data in the JSON format. In this section we will see how we can work with JSON data.
+
+Serde and related crates are great for serialization and deserialization different types of data formats. For JSON we have the \lstinline{serde_json}.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_formats\\/Cargo\\.toml},basicstyle=\small]
+[dependencies]
+serde = "1.0.90"
+serde_derive = "1.0.90"
+serde_json = "1.0"
+\end{lstlisting}
+
+Now we should be able to read an arbitrary json string get the structure of the json. This is enabled by the \lstinline{serde_json::Value} enum.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_formats\\/src\\/jsonreading\\.rs},basicstyle=\small]
+let json_str = r#"{
+  "FirstName": "John",
+  "LastName": "Doe",
+  "Age": 43,
+  "Address": {
+    "Street": "Downing Street 10",
+    "City": "London",
+    "Country": "Great Britain"
+  },
+  "PhoneNumbers": [
+    "+44 1234567",
+    "+44 2345678"
+  ]
+}"#;
+let person: serde_json::Value = serde_json::from_str(json_str)
+  .expect("JSON was not well-formatted");
+let address = person.get("Address").unwrap();
+println!("{:?}", address.get("City").unwrap());
+\end{lstlisting}
+
+Although the above code will work, the disadvantage is that we are not leveraging the strongly typed ability of Rust. Using strongly typed datastructures is great because you would want the program to fail when the incoming data format has changed, which they do a lot, and you want that information fast. You dont want corrupted data to pass through unhindered and pollute your machine learning applications downstream.
+
+So what we will do is put in a strongly typed structure and deserialize based on that structure. Thus we get the added benefit of data validation as well.
+
+As an example we will move to a little bit more complicated json file which is a data set of Nobel Prizes in different domains\footnote{\href{Download prizes dataset}{http://api.nobelprize.org/v1/prize.json}}. To parse the data set we will create which is essentially a hierarchy of structs.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_formats\\/src\\/jsonreading\\.rs},basicstyle=\small]
+#[derive(Debug, Serialize, Deserialize)]
+struct Prizes {
+  prizes: Vec<Prize>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[allow(non_snake_case)]
+struct Prize {
+  category: String,
+  #[serde(default)]
+  overallMotivation: Option<String>,
+  laureates: Vec<NobelLaureates>,
+  #[serde(deserialize_with = "de_u16_from_str")]
+  year: u16,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct NobelLaureates {
+  share: String,
+  #[serde(default)]
+  motivation: Option<String>,
+  surname: String,
+  #[serde(deserialize_with = "de_u16_from_str")]
+  id: u16,
+  firstname: String,
+}
+\end{lstlisting}
+
+So the top level field is \lstinline{prizes}, which is a list of \lstinline{Prize} which has \lstinline{category}, \lstinline{overallMotivation} and \lstinline{year} as single attributes and \lstinline{laureates} as list of \lstinline{laureates}; \lstinline{laureates} have \lstinline{share}, \lstinline{motivation}, \lstinline{surname}, id and \lstinline{firstname} as attributes. \lstinline{motivation} and \lstinline{overallMotivation} may not be present. Hence we can keep them as optional with \lstinline{telling} serde to give default values, which in this case will be \lstinline{None}. Since \lstinline{year} and \lstinline{id} are numbers we will try to modify them to \lstinline{u16} and write a simple helper function \lstinline{de_u16_from_str} to do the transformation.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_formats\\/src\\/jsonreading\\.rs},basicstyle=\small]
+fn de_u16_from_str<'de, D>(deserializer: D) -> Result<u16, D::Error>
+  where D: Deserializer<'de>
+{
+  let s = String::deserialize(deserializer)?;
+  u16::from_str(&s).map_err(de::Error::custom)
+}
+\end{lstlisting}
+
+Now that we are done defining the structure serde should be able to effortlessly read the file into the structure.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_formats\\/src\\/jsonreading\\.rs},basicstyle=\small]
+use std::fs::File;
+
+let file = File::open("data/prize.json")
+  .expect("file should open read only");
+let prizes_data: Prizes = serde_json::from_reader(file)
+  .expect("file should be proper JSON");
+\end{lstlisting}
+\label{sec:json}
+
+\section{XML}%
+The other popular data format is the xml data format. XML format is also considered to be one of the open standards for communication between apps and devices. Hence a lot of data is exposed in the XML format as well. The working and logic of parsing the XML file works the same way as shown in the JSON file format. We define the data in a hierarchy of structs and then try to deserialize the data using serde. In this case to parse xml file we will use \lstinline{serde-xml-rs} crate.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_formats\\/Cargo\\.toml},basicstyle=\small]
+[dependencies]
+# .. other dependencies
+serde-xml-rs = "0.3.1"
+# .. other dependencies
+\end{lstlisting}
+
+We will create a Rust model of the \lstinline{sample_1.xml} file. The file structure looks something like below.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_formats\\/Cargo\\.toml},basicstyle=\small]
+project
+    libraries
+        library 
+    module
+        files
+            file
+        libraries
+            library
+    module
+        files
+            file
+\end{lstlisting}
+
+Open the file and notice the above structure. So we will go ahead and create structs that capture the above structure in the xml file.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_formats\\/src\\/xmlreading\\.rs},basicstyle=\small]
+use serde_xml_rs;
+use serde_xml_rs::from_reader;
+use serde_xml_rs::Deserializer;
+
+#[derive(Deserialize, Debug)]
+struct Project {
+  name: String,
+  libraries: Vec<Libraries>,
+  module: Vec<Module>,
+}
+
+#[derive(Deserialize, Debug)]
+struct Module {
+  files: Vec<Files>,
+  #[serde(default)]
+  libraries: Vec<Libraries>,
+}
+
+#[derive(Deserialize, Debug)]
+struct Files {
+  file: Vec<FileName>,
+}
+
+#[derive(Deserialize, Debug)]
+struct FileName {
+  name: String,
+  #[serde(rename = "type")]
+  lang: String,
+  #[serde(rename = "$value")]
+  body: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct Libraries {
+  library: Vec<Library>,
+}
+
+#[derive(Deserialize, Debug)]
+struct Library {
+  #[serde(rename = "groupId")]
+  group_id: String,
+  #[serde(rename = "artifactId")]
+  artifact_id: String,
+  version: String,
+}
+\end{lstlisting}
+
+On a small technicality, in the struct FileName we cannot use the attribute name as type and need to rename from lang to type because type is a keyword in Rust. The other renamings are done for aesthetic reasons. Also \lstinline{#[serde(rename = "$value")]} helps in getting the value of the specific field. All the other constructs should be self explanatory as this is similar to how deserialization happens in csv and json.
+
+We should now be able to pass the file to the deserializer and that should create our \lstinline{project} variable.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_formats\\/src\\/xmlreading\\.rs},basicstyle=\small]
+let file = File::open("data/sample_1.xml").unwrap();
+let project: Project = from_reader(file).unwrap()
+\end{lstlisting}
+
+Notice the advantage of these strongly typed constructs. These is essentially free data validation, write once and all our data woes are gone. Also we are able to effectively navigate through the data as if they are code. For example something like the below becomes possible\footnote{The claim is not totally true for the given example. Can you figure out why?}.
+
+\begin{lstlisting}
+println!("{:#?}", project.libraries[0].library[0]);
+\end{lstlisting}
+
+In the examples the csv code is also shown for completeness.
+
+\label{sec:xml}
+
+\section{Scraping}%
+Till now we have seen how to read csv, json and xml file formats. Although these data formats are quite popular to store and share structured data, it might so happen that the data is not present in a structured format at all and we might need to gather the data from different sources and collate them together. One of the ways that can be done is through web scraping. Web scraping is about sifting through publicly available data on the internet and passing the data to a downward process. To do webscraping through Rust we will need to two crates which we will list as the dependencies.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/scraping\\/Cargo\\.toml},basicstyle=\small]
+[dependencies]
+reqwest = "0.9.15"
+scraper = "0.10.0"
+\end{lstlisting}
+
+Here \lstinline{reqwest} is a convenient higher level web client, which we will use to access the specific web pages and \lstinline{scraper} will be used to parse and query the html pages using CSS selectors.
+
+As an example we will take the moneycontrol.com website. This website is an Indian online business news website. The important thing to keep in mind is that this website also publishes periodic stock prices of different public companies listed in BSE and NSE. BSE and NSE are two major stock exchanges in India.
+
+Now consider a hypothetical scenario where we are interested in building a dataset of the timelines and the prices of a particular Indian company namely NTPC. NTPC is a thermal power corporation owned by the Government of India and is listed on the sensex. We can find the current prices of the NTPC stock on the moneycontrol website in this link \href{money control NTPC}{https://www.moneycontrol.com/india/stockpricequote/power-generation-distribution/ntpc/NTP}.
+
+\begin{figure}[htpb]
+	\centering
+	\includegraphics[width=0.8\linewidth]{moneycontrol_ntpc.png}
+	\caption{Moneycontrol}
+	\label{fig:moneycontrol}
+\end{figure}
+
+As can be seen in figure:1 the BSE and NSE prices are listed. To get the data we will need to have the response of the page. This can be done using the \lstinline{reqwest} apis.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/scraping\\/src\\/main\\.toml},basicstyle=\small]
+use reqwest;
+
+let mut resp = reqwest::get(
+  "https://www.moneycontrol.com/india/stockpricequote/power-generation-distribution/ntpc/NTP")?;
+assert!(resp.status().is_success());
+\end{lstlisting}
+
+This part of the code will store the response in the \lstinline{resp} variable. Once done we will need to parse the html, select the specific target data, and then collect it in a variable. This is shown in the below code.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/scraping\\/src\\/main\\.toml},basicstyle=\small]
+use scraper::{Selector, Html};
+// code ..
+let body = resp.text().unwrap();
+let fragment = Html::parse_document(&body);
+let stories = Selector::parse("#Bse_Prc_tick > strong:nth-child(1)").unwrap();
+
+for price in fragment.select(&stories) {
+  let price_txt = price.text().collect::<Vec<_>>();
+  // .. rest of the code
+\end{lstlisting}
+
+The string that goes into the \lstinline{Selector::parse} method is the css selector. We can get the appropriate selector using the chrome tools. Right click on the specific item, in this case the BSE price, go to \lstinline{Inspect}. This should open up the chrome developer tools copy the selector. Take a look at figure 2.
+
+\begin{figure}[htpb]
+	\centering
+	\includegraphics[width=0.8\linewidth]{chrome_copy_selector.png}
+	\caption{Chrome Selector}
+	\label{fig:chrome_selector}
+\end{figure}
+
+Once you copy the selector you should get the selector string which is the identifier for the price in the website. The app is almost complete. We can now use the time module in standard library to get a snapshot of the time when the price was captured and this can then be printed out to stdout. We can then probably run this app in a cronjob or other scheduling system. In that way we get a time series of the time and the price of the stock.
+
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/scraping\\/src\\/main\\.toml},basicstyle=\small]
+use std::time::{SystemTime, UNIX_EPOCH};
+
+let start = SystemTime::now();
+let since_the_epoch = start.duration_since(UNIX_EPOCH)
+  .expect("Time went backwards");
+
+if price_txt.len() == 1 {
+  println!("{:?}", (since_the_epoch, price_txt[0]));
+}
+\end{lstlisting}
+
+\label{sec:scraping}
+
+\section{SQL}%
+A lot of data is present in SQL databases and hence to run machine learning algorithms on those data we will need a way to talk to those databases and aggregate data from those databases. In this section we will take a look at postgres database and try to load, access and run SQL query on our postgres database. For this we will use the postgres rust crate, which as the name suggests, is the rust native crate for \lstinline{postgres}. Apart from writing native SQL queries one other popular method of querying databases is using ORMs. Rust also has a popular ORM crate named \lstinline{diesel} but we will not look at using ORMs. This is because ORM's generally are best suited for web applications where the types of queries that developers do are fairly consistent and predictable. On the other hand in machine learning applications, we might need to write complex queries in which case, writing queries using ORM's might become too complicated. Hence we will stick to writing native queries in SQL.
+
+First we will need a postgres database. So run the below bash command
+
+\begin{lstlisting}[caption={bash},basicstyle=\small]
+sudo docker run \
+  --name rust-postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_USER=postgres \
+  -p 5432:5432 \
+  -d postgres
+\end{lstlisting}
+
+As an example we will input the data from this url \href{Bangalore Weather}{https://www.yr.no/place/India/Karnataka/Bangalore/statistics.html}. So we will create a vector of tuples with the data which we will input later.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/databases\\/src\\/main\\.rs},basicstyle=\small]
+let weathers = vec![
+  ("January", 21.3, 27.3, 15.1),
+  ("February", 23.6, 30.1, 17.0),
+  // and so on.. take a look at the website or repo.
+];
+\end{lstlisting}
+
+To feed the data we will first need to have the postgres crate in our dependencies.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/databases\\/Cargo\\.toml},basicstyle=\small]
+[dependencies]
+postgres = "0.15.2"
+\end{lstlisting}
+
+And then we can create the connection to postgres using the connection string which needs to be in the format "postgresql://user:password@uri:port/databasename". After establishing the connection we will create the table.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/databases\\/src\\/main\\.rs},basicstyle=\small]
+use postgres;
+use postgres::{Connection, TlsMode, Error}; // the dependencies
+
+let conn = Connection::connect(
+  "postgresql://postgres:postgres@localhost:5432/postgres",
+  TlsMode::None)?; // create the connection
+
+conn.execute("CREATE TABLE IF NOT EXISTS weather (
+  id              SERIAL PRIMARY KEY,
+  month           VARCHAR NOT NULL,
+  normal          DOUBLE PRECISION NOT NULL,
+  warmest         DOUBLE PRECISION NOT NULL,
+  coldest         DOUBLE PRECISION NOT NULL
+)", &[])?; // create the table
+\end{lstlisting}
+
+We should now be able to create the table by executing the relevant table creation SQL query.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/databases\\/src\\/main\\.rs},basicstyle=\small]
+for weather in &weathers {
+  conn.execute("INSERT INTO weather (month, normal, warmest, coldest) VALUES ($1, $2, $3, $4)",
+    &[&weather.0, &weather.1, &weather.2, &weather.3])?;
+}
+\end{lstlisting}
+
+Retrieving the data from the database can now be done. Just executing the code written till now should have the data in the database. In a separate terminal open the database and run a select query.
+
+\begin{lstlisting}[caption={bash},basicstyle=\small]
+$ sudo docker exec -it rust-postgres psql --username postgres
+psql (11.2 (Debian 11.2-1.pgdg90+1))
+Type "help" for help.
+
+postgres=# \dt;
+          List of relations
+ Schema |  Name   | Type  |  Owner
+--------+---------+-------+----------
+ public | weather | table | postgres
+(1 row)
+
+postgres=# select * from weather;
+ id |   month   | normal | warmest | coldest
+----+-----------+--------+---------+---------
+  1 | January   |   21.3 |    27.3 |    15.1
+  2 | February  |   23.6 |    30.1 |      17
+  .. and the remaining data
+(12 rows)
+\end{lstlisting}
+
+To retrieve the values from the database we can create a struct that have the data structure.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/databases\\/src\\/main\\.rs},basicstyle=\small]
+#[derive(Debug)]
+struct Weather {
+  id: i32, month: String,
+  normal: f64, warmest: f64,
+  coldest: f64
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/databases\\/src\\/main\\.rs},basicstyle=\small]
+for row in &conn.query("SELECT id, month, normal, warmest, coldest FROM weather", &[])? {
+  let weather = Weather {
+    id: row.get(0),
+    month: row.get(1),
+    normal: row.get(2),
+    warmest: row.get(3),
+    coldest: row.get(4)
+  };
+  println!("{:?}", weather);
+}
+\end{lstlisting}
+
+We should see all the values printed in the console when we do a \lstinline{cargo run} on the package root\footnote{Just to remind readers, package root is the directory where the \lstinline{Cargo.toml} file resides.}.
+
+To complete this section on SQL, we will perform an average of the warmest column to find the warmest of the temperatures in Bangalore. The main advantage of SQL in datascience is that it allows us to not pull the data to the code but take the code to the data. This can be done by writing the business logic as SQL queries and sending the queries to the database to be executed there.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/databases\\/src\\/main\\.rs},basicstyle=\small]
+for row in &conn.query("SELECT AVG(warmest) FROM weather;", &[])? {
+  let x: f64 = row.get(0);
+  println!("{:?}", x);  // output 29.299999999999997
+}
+\end{lstlisting}
+\label{sec:sql}
+
+\section{NoSQL}%
+Although SQL databases are quite popular, the main drawbacks of SQL is that they are difficult to scale. Queries rely on the indexes to understand the relationships between different tables. Hence every time tables are updated everything would need to be recomputed again. This puts a real bottleneck on the amount of updation you can do on a database. If the target is a fast growing data sink, an SQL database might not be the work. As a solution to this NoSQL came into the picture. Although NoSQL databases are of different types, in this section we will take a look at Neo4J, which comes under the class of graph databases.
+
+In Graph databases, nodes and edges are created which results in finding interesting relationships between data. These nodes and edges are defined in namespaces. To understand how that works we will take the movie-lens data set\footnote{https://grouplens.org/datasets/movielens/} and create relationships from them. Download the \lstinline{ml-latest-small.zip} file and unzip it in the directory. For the code in this section we will need to expose the files through http and we can do it using a handy python command. Open a terminal, cd to the ml-latest-small directory and run the below command. This is so that neo4j, which will be started in a docker comtainer, is able to pick up the files.
+
+\begin{lstlisting}[caption={bash},basicstyle=\small]
+$ python3 -m http.server
+Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ...
+\end{lstlisting}
+
+To start the neo4j database we run the below docker command in a terminal. This should start the latest neo4j container.
+
+\begin{lstlisting}[caption={bash},basicstyle=\small]
+sudo docker run \
+  --name rust-neo4j \
+  --rm --env=NEO4J_AUTH=none \
+  --publish=7474:7474 \
+  --publish=7687:7687 \
+  --volume=$HOME/neo4j/data:/data neo4j
+\end{lstlisting}
+
+And to be able to talk to neo4j we will need to rusted-cypher crate in the dependencies.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/graph\_db\\/Cargo\\.toml},basicstyle=\small]
+[dependencies]
+rusted_cypher = "1.1.0"
+\end{lstlisting}
+
+We should now be able to connect to the database in our code. Similar to what is seen in the SQL section the connection string needs to be passed which is of the format \lstinline{http://username:password@uri:port/db/data}. In our case we have the neo4j started without authentication and hence will not need the username and password.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/graph\_db\\/src\\/main\\.toml},basicstyle=\small]
+use rusted_cypher;
+use rusted_cypher::{GraphClient, Statement, GraphError};
+use std::iter::repeat;
+
+fn main() -> Result<(), Box<GraphError>> {
+    let graph = GraphClient::connect(
+      "http://localhost:7474/db/data")?;
+    // rest of the code..
+\end{lstlisting}
+
+To load the movie data we will first need to have the namespaces.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/graph\_db\\/src\\/main\\.toml},basicstyle=\small]
+let mut query = graph.query();
+
+let statement1 = Statement::new(
+  "CREATE CONSTRAINT ON (m:Movie) ASSERT m.id IS UNIQUE;");
+let statement2 = Statement::new(
+  " CREATE CONSTRAINT ON (u:User) ASSERT u.id IS UNIQUE;"
+);
+let statement3 = Statement::new(
+  " CREATE CONSTRAINT ON (g:Genre) ASSERT g.name IS UNIQUE;"
+);
+
+query.add_statement(statement1);
+query.add_statement(statement2);
+query.add_statement(statement3);
+
+query.send()?;
+\end{lstlisting}
+
+This should create the namespaces. Now we should be able to pull the data from the files.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/graph\_db\\/src\\/main\\.toml},basicstyle=\small]
+// import movies.csv
+graph.exec(
+  "USING PERIODIC COMMIT LOAD CSV WITH HEADERS \
+  FROM \"http://10.0.1.43:8000/movies.csv\" AS line \
+  WITH line, SPLIT(line.genres, \"|\") AS Genres \
+  CREATE (m:Movie { id: TOINTEGER(line.`movieId`), title: line.`title` }) \
+  WITH Genres \
+  UNWIND RANGE(0, SIZE(Genres)-1) as i \
+  MERGE (g:Genre {name: UPPER(Genres[i])}) \
+  CREATE (m)-[r:GENRE {position:i+1}]->(g);"
+)?;
+
+// import ratings.csv
+graph.exec(
+  " USING PERIODIC COMMIT LOAD CSV WITH HEADERS \
+  FROM \"http://10.0.1.43:8000/ratings.csv\" AS line \
+  WITH line \
+  MATCH (m:Movie { id: TOINTEGER(line.`movieId`) }) \
+  MATCH (u:User { id: TOINTEGER(line.`userId`) }) \
+  CREATE (u)-[r:RATING {rating: TOFLOAT(line.`rating`)}]->(m);"
+)?;
+
+// import tags
+graph.exec(
+  " USING PERIODIC COMMIT LOAD CSV WITH HEADERS \
+  FROM \"http://10.0.1.43:8000/tags.csv\" AS line \
+  WITH line \
+  MATCH (m:Movie { id: TOINTEGER(line.`movieId`) }) \
+  MERGE (u:User { id: TOINTEGER(line.`userId`) }) \
+  CREATE (u)-[r:TAG {tag: line.`tag`}]->(m);"
+)?;
+\end{lstlisting}
+
+The \lstinline{10.0.1.43} ip that is used to get the data is the ip address of the machine. In ubuntu the ip address can be seen by running the command \lstinline{hostname -I}. In Mac the corresponding command is \lstinline{ipconfig getifaddr en0}. Similar commands can be retrieved for other OS's.
+
+The code till now should have the data in the database and we should be able to see the graph in the neo4j console. For movies this might be something similar to the fig3.
+
+\begin{figure}[htpb]
+	\centering
+	\includegraphics[scale=0.5]{graph.png}
+	\caption{Movies}
+	\label{fig:graph}
+\end{figure}
+
+To retrieve the data from the graph database or run queries, we can just pass the cypher queries that work in the console to the graph.exec method and that should return the relevant results.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/graph\_db\\/src\\/main\\.toml},basicstyle=\small]
+let result = graph.exec(
+  "MATCH (u:User {id: 119}) RETURN u.id")?;
+
+for row in result.rows() {
+  let id: u16 = row.get("u.id")?;
+  println!("user id: {}", id);
+}
+\end{lstlisting}
+
+The data can then be augmented using relational learning on the graphs\cite{2015arXiv150300759N}.
+
+\label{sec:nosql}
+
+\section{Data on s3}%
+Machine learning models, especially deep learning models need a huge amount of data to be able to effectively train and create models that have usable levels of accuracy. Storing that amount of data might be a challenge as it we might need to have terabytes of disk space with us or invest resources in procuring and setting up that much space. Cloud storage solutions allow us to circumvent this problem. Various cloud providers such as Amazon and Azure have low cost storage solutions which promise to store and manage our data on the internet either publicly or privately.
+
+Amazon S3 is one of the most popular solutions in this regard. To perform S3 operations from rust, a popular crate is rusoto\footnote{\href{github source code}{https://github.com/rusoto/rusoto}}. Rusoto is an integrated project which has a crate for each AWS service. To use S3, we will use the rusoto-s3 crate. We create an SVM model similar to the one in chapter2 using the same iris data set. Hence we will need some additional dependencies as well.
+
+\begin{lstlisting}[caption={chapter4\\/working\_withi\_data\\/s3\_files\\/Cargo\\.toml},basicstyle=\small]
+[dependencies]
+rusoto_s3 = "0.38.0"
+rusoto_core = "0.38.0"
+env_logger = "0.6.1"
+futures = "0.1.26"
+futures-fs = "0.0.5"
+rand = "0.6.5"
+csv = "1.0.7"
+ml-utils = { path = "../../ml-utils" }
+rustlearn = "0.5.0"
+\end{lstlisting}
+
+Now we should be able to write a function that takes the client, bucket and filename and places it in S3.
+
+\begin{lstlisting}[caption={},basicstyle=\small]
+use futures::{Future, Stream};
+use rusoto_core;
+use rusoto_core::credential::{AwsCredentials, DefaultCredentialsProvider};
+use rusoto_core::{Region, ProvideAwsCredentials, RusotoError};
+use rusoto_s3::{
+    CreateBucketRequest, DeleteBucketRequest,
+    DeleteObjectRequest, GetObjectRequest, ListObjectsV2Request,
+    PutObjectRequest, S3Client, S3,
+};
+
+fn push_file_to_s3(
+  client: &S3Client, bucket: &str,
+  dest_filename: &str, local_filename: &str,
+) {
+  let mut f = File::open(local_filename).unwrap();
+  let mut contents: Vec<u8> = Vec::new();
+  match f.read_to_end(&mut contents) {
+    Err(why) => panic!("Error opening file to send to S3: {}", why),
+    Ok(_) => {
+      let req = PutObjectRequest {
+        bucket: bucket.to_owned(),
+        key: dest_filename.to_owned(),
+        body: Some(contents.into()),
+        ..Default::default()
+      };
+      client.put_object(req).sync().expect("Couldn't PUT object");
+    }
+  }
+}
+\end{lstlisting}
+
+The above function takes a file, denoted by \lstinline{local_filename}, and places it in S3 where \lstinline{dest_filename} is the key. To be able to run the above function we will need an S3 client.
+
+\begin{lstlisting}[caption={},basicstyle=\small]
+use std::env;
+use std::fs::File;
+use std::io::Read;
+use std::str;
+use std::vec::Vec;
+use std::error::Error;
+
+use env_logger;
+use rusoto_core::{Region, ProvideAwsCredentials, RusotoError};
+
+fn main() -> Result<(), Box<Error>> {
+  let _ = env_logger::try_init();
+
+  let region = if let Ok(endpoint) = env::var("S3_ENDPOINT") {
+    let region = Region::Custom {
+      // name: "us-east-1".to_owned(),
+      name: "ap-south-1".to_owned(),
+      endpoint: endpoint.to_owned(),
+    };
+    println!(
+      "picked up non-standard endpoint {:?} from S3_ENDPOINT env. variable",
+      region
+    );
+    region
+  } else {
+    // Region::UsEast1
+    Region::ApSouth1
+  };
+  let credentials = DefaultCredentialsProvider::new()
+    .unwrap().credentials()
+    .wait().unwrap();
+  let client = S3Client::new(region.clone());
+  // rest of the code...
+\end{lstlisting}
+
+Now we should be able to pass the client to the \lstinline{push_file_to_s3} function.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/s3\_files\\/src\\/main\\.rs},basicstyle=\small]
+let s3_bucket = format!("rust-ml-bucket");
+let filename = format!("iris.csv");
+push_file_to_s3(&client, &s3_bucket, &filename, "data/iris.csv");
+\end{lstlisting}
+
+Running the code till now should push the file to the s3 bucket and we should see the file in s3 through the console or through aws command line\footnote{Install aws command line using the official documentation \href{}{https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html}}.
+
+\begin{lstlisting}[caption={bash},basicstyle=\small]
+$ aws s3 ls s3://rust-ml-bucket/
+2019-04-21 09:28:06       3858 iris.csv
+\end{lstlisting}
+
+Now that the file is in S3, we should be able to pull file from S3. So we create a \lstinline{GetObjectRequest}, that the client can use to pull the data from S3. The data would be a vector of u8 characters, which we can then transform to string. Once the string is formed correctly we can then return the string.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/s3\_files\\/src\\/main\\.rs},basicstyle=\small]
+use rusoto_s3::GetObjectRequest;
+
+fn pull_object_from_s3(client: &S3Client,
+                       bucket: &str,
+		       filename: &str) -> Result<String,
+		                                 Box<Error>> {
+  let get_req = GetObjectRequest {
+    bucket: bucket.to_owned(),
+    key: filename.to_owned(),
+    ..Default::default()
+  };
+
+  let result = client
+    .get_object(get_req).sync()
+    .expect("Couldn't GET object");
+  println!("get object result: {:#?}", result);
+
+  let stream = result.body.unwrap();
+  let body = stream.concat2().wait().unwrap();
+
+  Ok(str::from_utf8(&body).unwrap().to_owned())
+}
+\end{lstlisting}
+
+We should now be able to pull the csv file from s3 and load into an array if Flower struct similar to what we have seen in chapter2.
+
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/s3\_files\\/src\\/main\\.rs},basicstyle=\small]
+use csv;
+use ml_utils::datasets::Flower;
+
+let data = pull_object_from_s3(&client, &s3_bucket, &filename)?;
+
+let mut rdr = csv::Reader::from_reader(data.as_bytes());
+let mut data = Vec::new();
+for result in rdr.deserialize() {
+  let r: Flower = result?;
+  data.push(r);
+}
+\end{lstlisting}
+
+Now we should be able to put in any machine learning construct with any machine learning algorithm that we have seen in chapter2. Apart from these we can use other constructs in our s3 apps. Examples of creating these functions can be seen in the rusoto github repository.
+
+\label{sec:storing_data_on_s3}
+
+\section{Data Transformations}%
+Writing data transformation code is quite intuitive in Rust as this would generally involve writing structs for the data constructs and then implementing methods for those constructs. We have created similar methods in chapter2 for different structs such as the Flower stuct and the \lstinline{BostonHousing} struct. Moreover we have seen how to deserialize from different data stores to structs in the beginning of the chapter. Although this works even for large datasets, if the data set is huge it may be difficult for the developer to write efficient structs for them.
+
+Outside of the Rust ecosystem, we have the Apache Arrow ecosystem\footnote{\href{}{https://blog.cloudera.com/blog/2016/02/introducing-apache-arrow-a-fast-interoperable-in-memory-columnar-data-structure-standard/}}, which is specifically based on the columnar data memory layout system for data which allows data access in O(1) time. Rust developers are able to take advantage of the developments in the arrow ecosystem using the \lstinline{datafusion} crate. Using datafusion, we can write SQL queries to perform transformations on the data. The disadvantage is that as of this writing the datafusion library still needs a lot of functionality to be useful in a major application.
+
+To get a basic understanding of using datafusion for parsing through datasets we will use the titanic dataset. We can download the dataset from the kaggle website \href{}{https://www.kaggle.com/c/titanic}. We will also have the datafusion and arrow dependencies in \lstinline{Cargo.toml} to be able to build the project.
+
+To be able to run the computation through arrow we will need an execution context and a schema arc. Take a look at the code below to create the objects.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_transformations\_datafusion\\/src\\/main\\.rs},basicstyle=\small]
+use std::sync::Arc;
+
+use arrow;
+use datafusion;
+use arrow::array::{BinaryArray, Float64Array, UInt16Array, ListArray};
+use arrow::datatypes::{DataType, Field, Schema};
+
+use datafusion::execution::context::ExecutionContext;
+
+fn main() {
+  // create local execution context
+  let mut ctx = ExecutionContext::new();
+
+  // define schema for data source (csv file)
+  let schema = Arc::new(Schema::new(vec![
+    Field::new("PassengerId", DataType::Int32, false),
+    Field::new("Survived", DataType::Int32, false),
+    Field::new("Pclass", DataType::Int32, false),
+    Field::new("Name", DataType::Utf8, false),
+    Field::new("Sex", DataType::Utf8, false),
+    Field::new("Age", DataType::Int32, true),
+    Field::new("SibSp", DataType::Int32, false),
+    Field::new("Parch", DataType::Int32, false),
+    Field::new("Ticket", DataType::Utf8, false),
+    Field::new("Fare", DataType::Float64, false),
+    Field::new("Cabin", DataType::Utf8, true),
+    Field::new("Embarked", DataType::Utf8, false),
+  ]));
+
+  // register csv file with the execution context
+  ctx.register_csv("titanic", "titanic/train.csv",
+    &schema, true,
+  );
+  // rest of the code..
+\end{lstlisting}
+
+We should now be able to run queries on the data in SQL. In this case we will find the maximum of the Fare paid by the passengers who survived.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_transformations\_datafusion\\/src\\/main\\.rs},basicstyle=\small]
+let sql = "SELECT MAX(Fare) FROM titanic WHERE Survived = 1";
+\end{lstlisting}
+
+We will then execute the query and the also pass the number of records per batch.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_transformations\_datafusion\\/src\\/main\\.rs},basicstyle=\small]
+let relation = ctx.sql(&sql, 1024 * 1024).unwrap();
+\end{lstlisting}
+
+We will now need to iterate on all the batches and collect the results.
+
+\begin{lstlisting}[caption={chapter4\\/working\_with\_data\\/data\_transformations\_datafusion\\/src\\/main\\.rs},basicstyle=\small]
+// display the relation
+let mut results = relation.borrow_mut();
+
+while let Some(batch) = results1.next().unwrap() {
+  println!(
+    "RecordBatch has {} rows and {} columns",
+    batch.num_rows(), batch.num_columns()
+  );
+
+  let name = batch
+    .column(0).as_any()
+    .downcast_ref::<Float64Array>().unwrap();
+
+  for i in 0..batch.num_rows() {
+    let name_value: f64 = name.value(i);
+
+    println!("name: {}", name_value,);
+  }
+}
+\end{lstlisting}
+
+Right now in terms of aggregation functions there are only limited number of functions that are implemented. More SQL features such as JOIN, ORDER BY and LIMIT needs to be implemented. Another important feature that needs work is building a dataframe api similar to the lines of apache spark\footnote{\href{}{https://arrow.apache.org/blog/2019/02/05/datafusion-donation/}}. Even then we should now be able to implement a lot of common business logic using the existing features.
+
+\label{sec:datafusion}
+
+\section{Working with Matrices}%
+In this section we will explore an elementary and elegant datastructure called the matrix and its cousin the tensor. Matrices are of immense importance in the machine learning domain as almost all of the operations and "learning" involves matrix multiplications.
+
+Simply put, a matrix is a rectangular array of data arranged in rows and columns. Matrices support basic arithmetic operations such as addition and multiplication and the mathematics of matrix operations are also called linear algebra. The most popular crate for linear algebra is ndarray and we will take a look at some matrix operations in Rust using ndaray.
+
+\begin{lstlisting}[caption={Cargo\\.toml},basicstyle=\small]
+[dependencies]
+ndarray-rand = "0.9.0"
+ndarray = "0.12.1"
+\end{lstlisting}
+
+Let us define a $2 \times 3$ matrix, which is mathematically represented as follows.
+
+\begin{equation}
+	A_{2 \times 3} = 
+	\begin{bmatrix}
+            0 & 1 & 2  \\
+            3 & 4 & 5 \\
+    \end{bmatrix}
+\end{equation}
+
+To create a matrix similar to above we can create a rust vector and then create a matrix from that vector.
+
+\begin{lstlisting}[caption={},basicstyle=\small]
+let a1 = arr2(&[[0., 1., 2.],
+                [3., 4., 5.]]);
+\end{lstlisting}
+
+Printing this prints the matrix in the following fashion.
+
+\begin{lstlisting}[caption={},basicstyle=\small]
+    Finished dev [unoptimized + debuginfo] target(s) in 2.42s
+     Running `target/debug/matrix_transformations`
+[[0.0, 1.0, 2.0],
+ [3.0, 4.0, 5.0]] shape=[2, 3], strides=[3, 1], layout=C (0x1), const ndim=2
+\end{lstlisting}
+
+We can also use other methods such as \lstinline{from_vec}, \lstinline{from_shape_vec} and \lstinline{from_iter} according to our convenience. So the below code is equivalent to the above code.
+
+\begin{lstlisting}[caption={},basicstyle=\small]
+let a2 = Array::from_shape_vec((2, 3).strides((3, 1)),
+  vec![0., 1., 2., 3., 4., 5.]).unwrap();
+\end{lstlisting}
+
+A common matrix transformation is taking the transpose of the matrix. Matrix transposition is a sort of mirroring where we flip the matrix along a diagonal. So the rows become the columns and the columns become the rows. Matrix transposition is needed in a lot of equations and hence is quite important. To take the transpose of a matrix in ndarray we call the \lstinline{.t()} method.
+
+\begin{lstlisting}[caption={},basicstyle=\small]
+let a_T = a1.t();
+\end{lstlisting}
+
+Multiplying two matrices is similar to taking the dot product of them. We will multiply \lstinline{a1} with \lstinline{a_T}, which are of dimensions $2 \times 3$ and $3 \times 2$, so we should have a resultant vectir if $2 \times 2$.
+
+\begin{lstlisting}[caption={},basicstyle=\small]
+let a_mm = a1.dot(&a_T);
+println!("{:?}", a_mm.shape()); // output [2, 2]
+\end{lstlisting}
+
+There are a lot more operations that can be done in ndarray. Take a look at the exhaustive list \href{https://docs.rs/ndarray/0.11/ndarray/doc/ndarray_for_numpy_users/index.html}{here}.
+
+\label{sec:ndarray}
+
+\section{Conclusion}%
+In this chapter we introduced different ways of reading data. The different data storages explored are:
+
+\begin{itemize}
+	\item We have seen into how to load data from different file formats such as json and xml.
+	\item We have seen how to create our own structured data from open sources on the internet using web scraping.
+	\item We have looked into pulling and storing data in SQL and NoSql data sources.
+	\item We have also looked at BigData transformations using datafusion and matrix transformations using ndarray.
+\end{itemize}
+
+Next, we will study how to work in more real machine learning domains such as computer vision and natural language processing.
+\label{sec:conclusion}
+
+\printbibliography
+\nocite{*}
+\end{document} Apart from these we can use other constructs in our s3 apps. Examples of creating these functions can be seen in the rusoto github repository.

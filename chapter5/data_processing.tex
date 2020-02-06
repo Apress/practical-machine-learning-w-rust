@@ -1,0 +1,34 @@
+\documentclass{book}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{verbatim}
+\usepackage{amsmath}
+\usepackage[backend=bibtex, sorting=none, style=numeric-comp, defernumbers]{biblatex}
+\usepackage{graphicx}
+
+\addbibresource{\jobname.bib}
+
+\begin{document}
+
+Things that can be done.
+
+data sources such as csv and json
+
+SQL
+
+nosql
+
+graph databases
+
+
+\section{Conclusion}%
+This chapter introduced you to different algorithms for unsupervised learning such as Kmeans clustering, Gaussian Mixture models, DBSCAN models and Principal Component Analysis. We also took a look at how to create these models using \lstinline{rusty_machine} library. Finally you got to know about evaluating unsupervised models using rand index and jaccard index.
+
+In the next chapter you will learn about working with data and how to create effective data pipelines in Rust.
+\label{sec:conclusion}
+
+
+
+\printbibliography
+\nocite{*}
+\end{document}
