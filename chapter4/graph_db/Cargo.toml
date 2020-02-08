@@ -1,0 +1,8 @@
+[package]
+name = "graph_db"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rusted_cypher = "1.1.0"

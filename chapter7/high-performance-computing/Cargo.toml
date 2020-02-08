@@ -1,0 +1,12 @@
+[package]
+name = "high-performance-computing"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+# faster = "0.5.0"
+faster = { path = "../faster" }
+rblas = "0.0.13"
+# lapack = "0.16.0"
+# lapack = { git = "https://github.com/blas-lapack-rs/lapack.git", rev = "67554e6"}

@@ -1,0 +1,11 @@
+[package]
+name = "pytorch-image-classification"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+tch = { path = "../tch-rs" }
+# tch = { git = "https://github.com/LaurentMazare/tch-rs.git", rev="8110ee6" }
+# tch = { git = "https://github.com/LaurentMazare/tch-rs.git", rev="2ebebb808065de13495db8ff7b0ba18cb1a6fe92" }
+failure = "0.1.5"

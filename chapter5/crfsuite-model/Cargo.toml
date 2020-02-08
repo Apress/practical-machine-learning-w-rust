@@ -1,0 +1,15 @@
+[package]
+name = "crfsuite-model"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+# data reading and organisation
+csv = "1.0.7"
+serde = "1"
+serde_derive = "1"
+rand = "0.6.5"
+
+# machine learning
+crfsuite = "0.2.6"

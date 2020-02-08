@@ -1,0 +1,13 @@
+[package]
+name = "snips-model"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+snips-nlu-lib = { git = "https://github.com/snipsco/snips-nlu-rs", branch = "master" }
+rocket = "0.4.0"
+rocket_contrib = "0.4.0"
+serde = "1.0"
+serde_json = "1.0"
+serde_derive = "1.0"

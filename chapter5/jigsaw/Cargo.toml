@@ -1,0 +1,24 @@
+[package]
+name = "jigsaw"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+# nlp related
+fasttext = "0.4.1"
+vtext = "0.1.0-alpha.1"
+stopwords = "0.1.0"
+
+# matrices
+sprs = "0.6.4"
+ndarray = "0.12.1"
+
+# data reading and organisation
+csv = "1.0.7"
+serde = "1"
+serde_derive = "1"
+rand = "0.6.5"
+
+# model building
+rustlearn = "0.5.0"

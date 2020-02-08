@@ -1,0 +1,10 @@
+,lemma,next-lemma,next-next-lemma,next-next-pos,next-next-shape,next-next-word,next-pos,next-shape,next-word,pos,prev-iob,prev-lemma,prev-pos,prev-prev-iob,prev-prev-lemma,prev-prev-pos,prev-prev-shape,prev-prev-word,prev-shape,prev-word,sentence_idx,shape,word
+0,thousand,of,demonstr,NNS,lowercase,demonstrators,IN,lowercase,of,NNS,__START1__,__start1__,__START1__,__START2__,__start2__,__START2__,wildcard,__START2__,wildcard,__START1__,1,capitalized,Thousands
+1,of,demonstr,have,VBP,lowercase,have,NNS,lowercase,demonstrators,IN,O,thousand,NNS,__START1__,__start1__,__START1__,wildcard,__START1__,capitalized,Thousands,1,lowercase,of
+2,demonstr,have,march,VBN,lowercase,marched,VBP,lowercase,have,NNS,O,of,IN,O,thousand,NNS,capitalized,Thousands,lowercase,of,1,lowercase,demonstrators
+3,have,march,through,IN,lowercase,through,VBN,lowercase,marched,VBP,O,demonstr,NNS,O,of,IN,lowercase,of,lowercase,demonstrators,1,lowercase,have
+4,march,through,london,NNP,capitalized,London,IN,lowercase,through,VBN,O,have,VBP,O,demonstr,NNS,lowercase,demonstrators,lowercase,have,1,lowercase,marched
+5,through,london,to,TO,lowercase,to,NNP,capitalized,London,IN,O,march,VBN,O,have,VBP,lowercase,have,lowercase,marched,1,lowercase,through
+6,london,to,protest,VB,lowercase,protest,TO,lowercase,to,NNP,O,through,IN,O,march,VBN,lowercase,marched,lowercase,through,1,capitalized,London
+7,to,protest,the,DT,lowercase,the,VB,lowercase,protest,TO,B-geo,london,NNP,O,through,IN,lowercase,through,capitalized,London,1,lowercase,to
+8,protest,the,war,NN,lowercase,war,DT,lowercase,the,VB,O,to,TO,B-geo,london,NNP,capitalized,London,lowercase,to,1,lowercase,protest

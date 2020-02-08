@@ -1,0 +1,11 @@
+[package]
+name = "reinforcement-learning-frozenlake"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rsrl = { git = "https://github.com/Ploppz/rsrl" }
+slog = "2.4.1"
+ndarray = "0.12.1"
+ndarray-linalg = "0.10"

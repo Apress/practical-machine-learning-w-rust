@@ -1,0 +1,6 @@
+https://www.kaggle.com/sandeepkumar121995/keras-bi-gru-lstm-attention-fasttext
+https://www.kaggle.com/abhishek/approaching-almost-any-nlp-problem-on-kaggle
+
+    // now we can probably load them to different vectors.
+
+    // check out the rust repl https://github.com/google/evcxr

@@ -1,0 +1,10 @@
+[package]
+name = "finetuning_pytorch_image_models"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+# tch = "0.0.9"
+tch = { git = "https://github.com/LaurentMazare/tch-rs.git", rev = "e92fadc" }
+failure = "0.1.5"

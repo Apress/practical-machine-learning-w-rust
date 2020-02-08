@@ -1,0 +1,16 @@
+[package]
+name = "s3_files"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rusoto_s3 = "0.38.0"
+rusoto_core = "0.38.0"
+env_logger = "0.6.1"
+futures = "0.1.26"
+futures-fs = "0.0.5"
+rand = "0.6.5"
+csv = "1.0.7"
+ml-utils = { path = "../../ml-utils" }
+rustlearn = "0.5.0"

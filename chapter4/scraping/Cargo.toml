@@ -1,0 +1,9 @@
+[package]
+name = "scraping"
+version = "0.1.0"
+authors = ["joydeep bhattacharjee"]
+edition = "2018"
+
+[dependencies]
+reqwest = "0.9.15"
+scraper = "0.10.0"

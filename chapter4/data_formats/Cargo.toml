@@ -1,0 +1,12 @@
+[package]
+name = "data_formats"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+serde = "1.0.90"
+serde_derive = "1.0.90"
+serde_json = "1.0"
+serde-xml-rs = "0.3.1"
+csv = "1.0.7"

@@ -1,0 +1,9 @@
+[package]
+name = "adversarial"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+tch = { git = "https://github.com/LaurentMazare/tch-rs.git", rev = "e92fadc" }
+failure = "0.1.5"
