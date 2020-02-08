@@ -1,0 +1,12 @@
+[package]
+name = "rusty_machine_supervised_algos"
+version = "0.1.0"
+authors = ["joydeep bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+csv = "*"
+rusty-machine="*"
+serde = "1"
+serde_derive = "1"
+rand = "0.6.5"

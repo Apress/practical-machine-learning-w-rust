@@ -1,0 +1,11 @@
+[package]
+name = "rusty_machine_classification"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rusty-machine = { path = "../rusty-machine" }
+ml-utils = { path = "../ml-utils" }
+rand = "0.6.5"
+csv = "1.0.7"

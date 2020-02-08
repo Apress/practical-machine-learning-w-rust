@@ -1,0 +1,15 @@
+[package]
+name = "rust_and_tf"
+version = "0.1.0"
+authors = ["Joydeep Bhattacharjee <joydeepubuntu@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+tensorflow = { version = "0.13.0", features = ["tensorflow_unstable"] }
+serde = "1"
+serde_derive = "1"
+rand = "0.6.5"
+transpose = "0.2.0"
+mnist = "0.4.0"
+ml-utils = { path = "../ml-utils" }
+random = "0.12.2"

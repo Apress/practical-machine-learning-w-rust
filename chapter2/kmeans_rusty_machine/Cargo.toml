@@ -1,0 +1,10 @@
+[package]
+name = "linear_reg_rustymachine"
+version = "0.1.0"
+authors = ["joydeep bhattacharjee <joydeepubuntu@gmail.com>"]
+
+[dependencies]
+rusty-machine="0.5.4"
+rand = "0.6.5"
+ml-utils = { path = "../ml-utils" }
+csv = "1.0.7"
